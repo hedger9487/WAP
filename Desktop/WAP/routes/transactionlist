@@ -1,0 +1,40 @@
+const express = require('express')
+const router = express.Router()
+const db = require('../public/javascripts/db')
+const session = require('./session')
+const auth = require('./auth')
+
+// Configure session middleware
+session.configureSession(router)
+
+router.get('/', auth.authenticate, async (req, res) => {
+  const userId = req.userId
+  db.getConnection(async (err, connection) => {
+    if (err) {
+      console.error(err)
+      return res.status(500).json({ message: 'Server error' })
+    }
+    let sql = `SELECT *
+               FROM Transactions
+               WHERE transactionId IN (
+                 SELECT transactionId
+                 FROM TransactionPayer
+                 WHERE userId = ?
+                 UNION
+                 SELECT transactionId
+                 FROM TransactionPayee
+                 WHERE userId = ?
+               )`
+
+    connection.query(sql, [userId, userId], (err, result) => {
+      if (err) {
+        console.error(err)
+        return res.status(500).json({ message: 'Server error' })
+      }
+      console.log('transaction list')
+    })
+    connection.release()
+  })
+})
+
+module.exports = router
